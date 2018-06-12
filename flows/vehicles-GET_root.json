@@ -1,0 +1,226 @@
+{
+	"schemaVersion": "2",
+	"name": "Vehicles - get /",
+	"start": "doT.1",
+	"nodes": {
+		"doT.1": {
+			"type": "nodehandler://nodehandler-dot/doT",
+			"name": "Format query",
+			"method": "formatStr",
+			"parameters": [
+				{
+					"name": "data",
+					"type": "jsonpath",
+					"value": "$.params"
+				},
+				{
+					"name": "template",
+					"type": "string",
+					"value": "\"{\\\"id_car_make\\\":{{=JSON.stringify(it.makeid)}}}\""
+				}
+			],
+			"outputs": {
+				"next": {
+					"routes": [
+						"makes.1",
+						"models.1"
+					],
+					"context": "$.where"
+				},
+				"error": {
+					"routes": [
+						"http.1"
+					],
+					"context": "$.error"
+				}
+			}
+		},
+		"makes.1": {
+			"type": "nodehandler://arrow-flow-invoke/model/mongo/makes",
+			"name": "queryMakes",
+			"method": "query",
+			"parameters": [
+				{
+					"name": "where",
+					"type": "jsonpath",
+					"value": "$.where"
+				}
+			],
+			"outputs": {
+				"next": {
+					"routes": [
+						"condition.1"
+					],
+					"context": "$.makes"
+				}
+			}
+		},
+		"models.1": {
+			"type": "nodehandler://arrow-flow-invoke/model/mongo/models",
+			"name": "queryModels",
+			"method": "query",
+			"parameters": [
+				{
+					"name": "where",
+					"type": "jsonpath",
+					"value": "$.where"
+				}
+			],
+			"outputs": {
+				"next": {
+					"routes": [
+						"condition.1"
+					],
+					"context": "$.models"
+				}
+			}
+		},
+		"condition.1": {
+			"type": "nodehandler://axway-flow/condition",
+			"name": "MakeExists",
+			"method": "exists",
+			"parameters": [
+				{
+					"name": "source",
+					"type": "jsonpath",
+					"value": "$.makes[0]"
+				}
+			],
+			"outputs": {
+				"true": {
+					"routes": [
+						"condition.2"
+					],
+					"context": "$.exists"
+				},
+				"false": {
+					"routes": [
+						"http.1"
+					],
+					"context": "$.exists"
+				}
+			}
+		},
+		"condition.2": {
+			"type": "nodehandler://axway-flow/condition",
+			"name": "ModelExists",
+			"method": "exists",
+			"parameters": [
+				{
+					"name": "source",
+					"type": "jsonpath",
+					"value": "$.models[0]"
+				}
+			],
+			"outputs": {
+				"true": {
+					"routes": [
+						"doT.2"
+					],
+					"context": "$.exists"
+				},
+				"false": {
+					"routes": [
+						"http.1"
+					],
+					"context": "$.exists"
+				}
+			}
+		},
+		"doT.2": {
+			"type": "nodehandler://nodehandler-dot/doT",
+			"name": "Format object",
+			"method": "formatObj",
+			"parameters": [
+				{
+					"name": "data",
+					"type": "jsonpath",
+					"value": "$"
+				},
+				{
+					"name": "template",
+					"type": "string",
+					"value": "\"{\\n  \\\"make\\\": {{=JSON.stringify(it.makes[0].name)}},\\n  \\\"models\\\": {{=JSON.stringify(it.models)}}\\n}\\n\\t\""
+				}
+			],
+			"outputs": {
+				"next": {
+					"routes": [
+						"http.2"
+					],
+					"context": "$.response"
+				},
+				"error": {
+					"routes": [
+						"http.3"
+					],
+					"context": "$.error"
+				}
+			}
+		},
+		"http.1": {
+			"type": "nodehandler://axway-flow/http",
+			"name": "Failure",
+			"method": "setresponse",
+			"parameters": [
+				{
+					"name": "status",
+					"type": "number",
+					"value": "404"
+				}
+			],
+			"outputs": {
+				"next": {
+					"context": "$.response",
+					"routes": []
+				}
+			}
+		},
+		"http.2": {
+			"type": "nodehandler://axway-flow/http",
+			"name": "Success",
+			"method": "setresponse",
+			"parameters": [
+				{
+					"name": "status",
+					"type": "number",
+					"value": "200"
+				},
+				{
+					"name": "body",
+					"type": "jsonpath",
+					"value": "$.response"
+				}
+			],
+			"outputs": {
+				"next": {
+					"context": "$.response",
+					"routes": []
+				}
+			}
+		},
+		"http.3": {
+			"type": "nodehandler://axway-flow/http",
+			"name": "Error formatting response",
+			"method": "setresponse",
+			"parameters": [
+				{
+					"name": "status",
+					"type": "number",
+					"value": "500"
+				},
+				{
+					"name": "body",
+					"type": "string",
+					"value": "\"Something went wrong, check the logs\""
+				}
+			],
+			"outputs": {
+				"next": {
+					"context": "$.response",
+					"routes": []
+				}
+			}
+		}
+	}
+}
